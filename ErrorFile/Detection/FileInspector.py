@@ -1,10 +1,10 @@
 import os
 
-from ErrorFile.Detection.ImageInspector_fast import ImageInspectorFast
-from ErrorFile.Detection.ImageInspector_precise import ImageInspector as ImageInspectorPrecise
-from ErrorFile.Detection.PDFInspector import PDFInspector
-from ErrorFile.Detection.ExcelInspector import check_excel_file, check_xls_file
-from ErrorFile.Detection.WordInspector import check_docx_file
+from .ImageInspector_fast import ImageInspectorFast
+from .ImageInspector_precise import ImageInspector as ImageInspectorPrecise
+from .PDFInspector import PDFInspector
+from .ExcelInspector import check_excel_file, check_xls_file
+from .WordInspector import check_docx_file
 
 
 class FileInspector:
