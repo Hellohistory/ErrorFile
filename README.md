@@ -17,9 +17,9 @@ pip install ErrorFile
 ### 示例
 
 ```python
-from ErrorFile.Detection.FileInspector import FileInspector
+from Detection.FileInspector import FileInspector
 
-file_path = 'TestFiles/testfile.pdf'
+file_path = r'TestFiles\TOM_损坏.jpg'
 image_mode = 'precise'  # 或 'fast'
 result = FileInspector(file_path, image_mode).inspect()
 print(result)
