@@ -19,7 +19,7 @@ pip install ErrorFile
 ```python
 from Detection.FileInspector import FileInspector
 
-file_path = r'TestFiles\TOM_损坏.jpg'
+file_path = r'tests/files/TOM_损坏.jpg'
 image_mode = 'precise'  # 或 'fast'
 result = FileInspector(file_path, image_mode).inspect()
 print(result)
