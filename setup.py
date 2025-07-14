@@ -1,12 +1,11 @@
 from setuptools import setup, find_packages
 
-# 从README.md读取长描述
-with open('ErrorFile/README.md', 'r', encoding='utf-8') as f:
+with open('README.md', 'r', encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
     name='ErrorFile',
-    version='0.2.0',
+    version='0.1.2',
     packages=find_packages(),
     author='Hellohistory',
     author_email='etojsyc521@gmail.com',
