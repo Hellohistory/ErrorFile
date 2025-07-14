@@ -28,13 +28,13 @@ jobs:
         python -m pip install --upgrade pip
         pip install pypdf2 Pillow openpyxl xlrd python-docx
     - name: Run tests with unittest
-      run: python -m unittest discover tests
+      run: |
+        python -m unittest discover tests
 
-  # 发布到 TestPyPI
   publish-to-testpypi:
     name: Publish to TestPyPI
     needs: test
-    if: github.event.release.prerelease == true
+    if: github.event_name == 'release' && github.event.release.prerelease == true
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -58,7 +58,7 @@ jobs:
   publish-to-pypi:
     name: Publish to PyPI
     needs: test
-    if: github.event.release.prerelease == false
+    if: github.event_name == 'release' && github.event.release.prerelease == false
     runs-on: ubuntu-latest
     permissions:
       id-token: write
