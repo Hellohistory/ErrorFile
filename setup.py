@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="ErrorFile",
-    version="0.1.6",
+    version="0.1.8",
     packages=find_packages(),
     author="Hellohistory",
     author_email="etojsyc521@gmail.com",
@@ -24,12 +24,14 @@ setup(
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
     ],
     keywords="error file check corrupt damage inspector",
     python_requires=">=3.7",
     install_requires=[
         "pypdf2",
-        "Pillow",
+        "Pillow>=10.4.0,<10.5.0",
         "openpyxl",
         "xlrd",
         "python-docx",
