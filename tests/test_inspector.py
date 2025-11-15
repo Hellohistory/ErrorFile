@@ -242,7 +242,7 @@ class TestFileInspector(unittest.TestCase):
         json_good = Path(cls.temp_dir) / "good.json"
         json_bad = Path(cls.temp_dir) / "bad.json"
         json_good.write_text(json.dumps({"status": "ok", "value": 1}), encoding="utf-8")
-        json_bad.write_text("{""status"": }", encoding="utf-8")
+        json_bad.write_text('{"status": }', encoding="utf-8")
         cls._register(".json", json_good, json_bad)
 
         xml_good = Path(cls.temp_dir) / "good.xml"
