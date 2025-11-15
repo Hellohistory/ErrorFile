@@ -5,6 +5,7 @@ from openpyxl import load_workbook
 from openpyxl.utils.exceptions import InvalidFileException
 from xlrd.biffh import XLRDError
 
+
 def check_excel_file(file_path):
     """检查.xlsx是否损坏"""
     try:
