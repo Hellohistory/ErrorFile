@@ -1,6 +1,7 @@
-# ErrorFile/Detection/ImageInspector_fast.py
+# ErrorFile/Detection/ImageInspector_precise.py
 
 from PIL import Image
+
 
 class ImageInspector:
     def __init__(self, file_path):
@@ -9,7 +10,6 @@ class ImageInspector:
     def detailed_check_image(self):
         """对图片文件进行详细检查 (精确模式)"""
         try:
-            # 第一次打开，只为了验证
             with Image.open(self.file_path) as img:
                 img.verify()
 

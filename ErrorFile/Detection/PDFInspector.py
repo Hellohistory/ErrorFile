@@ -11,7 +11,7 @@ class PDFInspector:
     def detailed_check_pdf(self):
         """对PDF文件进行详细的结构性检查"""
         try:
-            with open(self.file_path, 'rb') as file:
+            with open(self.file_path, "rb") as file:
                 reader = PyPDF2.PdfReader(file, strict=True)
 
                 if reader.is_encrypted:
@@ -27,7 +27,15 @@ class PDFInspector:
                     page.get_contents()
 
         except PdfReadError as e:
-            return False, f"PDF文件损坏，无法读取: {e}"
+            error_message = str(e)
+            lowered = error_message.lower()
+            if "encrypted" in lowered or "password" in lowered:
+                return False, f"PDF文件已加密且缺少正确的密码: {error_message}"
+            if "xref" in lowered:
+                return False, f"PDF文件交叉引用表 (XRef) 损坏: {error_message}"
+            if "file has not been decrypted" in lowered:
+                return False, "PDF文件需要密码解密后才能读取内容。"
+            return False, f"PDF文件损坏或结构异常: {error_message}"
         except Exception as e:
             return False, f"检测PDF过程中发生错误: {str(e)}"
 
