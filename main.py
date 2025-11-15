@@ -1,7 +1,6 @@
-from ErrorFile.Detection.FileInspector import FileInspector
+from ErrorFile import inspect_file
 
 
-file_path = r'tests/files/TOM_损坏.jpg'
-image_mode = 'fast'  # 或 'fast'
-result = FileInspector(file_path, image_mode).inspect()
-print(result)
+file_path = r"tests/files/TOM_损坏.jpg"
+is_ok, message = inspect_file(file_path, mode="precise")
+print(f"File: {file_path}\nOK: {is_ok}\nMessage: {message}")

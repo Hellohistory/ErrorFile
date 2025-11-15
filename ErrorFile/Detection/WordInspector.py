@@ -3,6 +3,7 @@
 from docx import Document
 from docx.opc.exceptions import PackageNotFoundError
 
+
 def check_docx_file(file_path):
     """检查Word文档(.docx)是否损坏"""
     try:

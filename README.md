@@ -1,6 +1,6 @@
 # ErrorFile
 
-`ErrorFile`是一个用于检测和识别各种文件错误的Python包，包括图片、PDF、Excel和Word文件。通过使用不同的检测模式，可以快速或精确地识别文件中的潜在问题。
+`ErrorFile`是一个用于检测和识别各种文件错误的Python包，包括图片、PDF、Excel和Word文件。通过使用统一的顶层接口，可以快速定位文件中潜在的问题。
 
 ## 安装
 
@@ -12,17 +12,15 @@ pip install ErrorFile
 
 ## 快速开始
 
-使用`ErrorFile`非常简单。首先，导入`FileInspector`类，然后创建一个实例，并指定要检查的文件路径和（可选的）检查模式。
-
-### 示例
+使用`ErrorFile`非常简单。推荐直接使用顶层函数`inspect_file`：
 
 ```python
-from Detection.FileInspector import FileInspector
+from ErrorFile import inspect_file
 
 file_path = r'tests/files/TOM_损坏.jpg'
-image_mode = 'precise'  # 或 'fast'
-result = FileInspector(file_path, image_mode).inspect()
-print(result)
+# mode 参数由 inspect_file 统一处理，当前仅支持 'precise'
+is_ok, message = inspect_file(file_path, mode='precise')
+print(f"File: {file_path}\nOK: {is_ok}\nMessage: {message}")
 ```
 
 ## 支持的文件类型
@@ -31,32 +29,28 @@ print(result)
 
 - 图片（JPEG, JPG, PNG, GIF, BMP, WEBP, TIFF, SVG）
 - PDF
-- Excel（XLSX, XLS）
-- Word（DOCX）
+- Office 文档（Excel：XLSX、XLS；Word：DOCX；PowerPoint：PPTX）
+- 压缩包（ZIP、RAR）
+- 媒体文件（MP3、MP4）
 
 ## 检测模式
 
-对于图片文件，支持两种检测模式：
-
-- `fast`：快速检测模式，适用于快速概览和检查大量文件。
-- `precise`：精确检测模式，适用于深入分析单个文件。
-
-对于PDF、Excel和Word文件，将自动采用详细检测模式。
+图片文件采用精确检测模式(`precise`)，底层基于 Pillow 的 `verify()` 与 `load()` 方法，能够快速且可靠地发现问题。非图片文件会自动执行相应的深度检查，无需手动配置模式。
 
 ## API参考
 
-### `FileInspector`
+### `inspect_file(file_path, mode='precise')`
 
-主要的类，用于初始化文件检查过程。
+顶层函数，用于检查指定路径的文件是否损坏。
 
 #### 参数
 
 - `file_path`：要检查的文件路径。
-- `image_mode`：（可选）图片检查模式，默认为`precise`。
+- `mode`：（可选）图片检测模式，目前仅支持 `precise`，其它文件类型忽略此参数。
 
-#### 方法
+#### 返回
 
-- `inspect()`：执行文件检查，并返回检查结果。
+- `(is_ok, message)`：`is_ok`是布尔值，表示文件是否通过检查；`message`是详细描述信息。
 
 ## 贡献
 

@@ -4,3 +4,6 @@ Pillow~=10.2.0
 openpyxl~=3.1.2
 xlrd~=1.2.0
 python-docx~=0.8.11
+python-pptx~=1.0.2
+rarfile~=4.2
+mutagen~=1.47.0
