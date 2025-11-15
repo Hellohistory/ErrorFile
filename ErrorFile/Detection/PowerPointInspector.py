@@ -9,7 +9,12 @@ def check_pptx_file(file_path):
     """检查 .pptx 文件是否损坏，并提供详细信息。"""
 
     try:
-        Presentation(file_path)
+        presentation = Presentation(file_path)
+
+        for slide in presentation.slides:
+            for shape in slide.shapes:
+                _ = shape.has_text_frame
+
         return True, "PowerPoint 文档(.pptx)检查通过，文件未损坏。"
     except PackageNotFoundError as exc:
         return False, f"PowerPoint 文档(.pptx)损坏或不是有效的 pptx 格式: {exc}"

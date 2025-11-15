@@ -1,9 +1,14 @@
+import bz2
+import gzip
+import json
 import shutil
+import tarfile
 import tempfile
 import unittest
 import zipfile
 from pathlib import Path
 
+import py7zr
 from ErrorFile import inspect_file
 from PIL import Image
 from PyPDF2 import PdfWriter
@@ -12,8 +17,10 @@ from openpyxl import Workbook
 from pptx import Presentation
 from tests.good_xls_bytes import GOOD_XLS_BYTES
 from tests.sample_binary_assets import (
+    GOOD_FLAC_BYTES,
     GOOD_MP3_BYTES,
     GOOD_MP4_BYTES,
+    GOOD_OGG_BYTES,
     GOOD_RAR_BYTES,
 )
 
@@ -46,6 +53,8 @@ class TestFileInspector(unittest.TestCase):
         cls._prepare_pptx_files()
         cls._prepare_zip_files()
         cls._prepare_rar_files()
+        cls._prepare_compressed_files()
+        cls._prepare_text_files()
         cls._prepare_media_files()
 
     @classmethod
@@ -152,6 +161,57 @@ class TestFileInspector(unittest.TestCase):
         cls._register(".rar", good_path, bad_path)
 
     @classmethod
+    def _prepare_compressed_files(cls):
+        gzip_good = Path(cls.temp_dir) / "good.gz"
+        gzip_bad = Path(cls.temp_dir) / "bad.gz"
+        with gzip.open(gzip_good, "wb") as gzip_file:
+            gzip_file.write(b"gzip ok")
+        gzip_bad.write_text("not a gzip", encoding="utf-8")
+        cls._register(".gz", gzip_good, gzip_bad)
+
+        bzip_good = Path(cls.temp_dir) / "good.bz2"
+        bzip_bad = Path(cls.temp_dir) / "bad.bz2"
+        with bz2.BZ2File(bzip_good, "wb") as bzip_file:
+            bzip_file.write(b"bz2 ok")
+        bzip_bad.write_text("not a bz2", encoding="utf-8")
+        cls._register(".bz2", bzip_good, bzip_bad)
+
+        seven_zip_good = Path(cls.temp_dir) / "good.7z"
+        seven_zip_bad = Path(cls.temp_dir) / "bad.7z"
+        payload_txt = Path(cls.temp_dir) / "archive_payload.txt"
+        payload_txt.write_text("archive ok", encoding="utf-8")
+        with py7zr.SevenZipFile(seven_zip_good, "w") as archive:
+            archive.write(payload_txt, arcname="payload.txt")
+        seven_zip_bad.write_text("not a 7z", encoding="utf-8")
+        cls._register(".7z", seven_zip_good, seven_zip_bad)
+
+        tar_payload = Path(cls.temp_dir) / "tar_payload.txt"
+        tar_payload.write_text("tar ok", encoding="utf-8")
+
+        tar_good = Path(cls.temp_dir) / "good.tar"
+        tar_bad = Path(cls.temp_dir) / "bad.tar"
+        cls._create_tar_archive(tar_good, "w", tar_payload)
+        tar_bad.write_text("not a tar", encoding="utf-8")
+        cls._register(".tar", tar_good, tar_bad)
+
+        tar_gz_good = Path(cls.temp_dir) / "good.tar.gz"
+        tar_gz_bad = Path(cls.temp_dir) / "bad.tar.gz"
+        cls._create_tar_archive(tar_gz_good, "w:gz", tar_payload)
+        tar_gz_bad.write_text("not a tar.gz", encoding="utf-8")
+        cls._register(".tar.gz", tar_gz_good, tar_gz_bad)
+
+        tar_bz2_good = Path(cls.temp_dir) / "good.tar.bz2"
+        tar_bz2_bad = Path(cls.temp_dir) / "bad.tar.bz2"
+        cls._create_tar_archive(tar_bz2_good, "w:bz2", tar_payload)
+        tar_bz2_bad.write_text("not a tar.bz2", encoding="utf-8")
+        cls._register(".tar.bz2", tar_bz2_good, tar_bz2_bad)
+
+    @classmethod
+    def _create_tar_archive(cls, path: Path, mode: str, payload: Path) -> None:
+        with tarfile.open(path, mode) as tar:
+            tar.add(payload, arcname="payload.txt")
+
+    @classmethod
     def _prepare_media_files(cls):
         mp3_path = Path(cls.temp_dir) / "good.mp3"
         bad_mp3 = Path(cls.temp_dir) / "bad.mp3"
@@ -164,6 +224,32 @@ class TestFileInspector(unittest.TestCase):
         mp4_path.write_bytes(GOOD_MP4_BYTES)
         bad_mp4.write_text("not an mp4", encoding="utf-8")
         cls._register(".mp4", mp4_path, bad_mp4)
+
+        flac_path = Path(cls.temp_dir) / "good.flac"
+        bad_flac = Path(cls.temp_dir) / "bad.flac"
+        flac_path.write_bytes(GOOD_FLAC_BYTES)
+        bad_flac.write_text("not a flac", encoding="utf-8")
+        cls._register(".flac", flac_path, bad_flac)
+
+        ogg_path = Path(cls.temp_dir) / "good.ogg"
+        bad_ogg = Path(cls.temp_dir) / "bad.ogg"
+        ogg_path.write_bytes(GOOD_OGG_BYTES)
+        bad_ogg.write_text("not an ogg", encoding="utf-8")
+        cls._register(".ogg", ogg_path, bad_ogg)
+
+    @classmethod
+    def _prepare_text_files(cls):
+        json_good = Path(cls.temp_dir) / "good.json"
+        json_bad = Path(cls.temp_dir) / "bad.json"
+        json_good.write_text(json.dumps({"status": "ok", "value": 1}), encoding="utf-8")
+        json_bad.write_text("{""status"": }", encoding="utf-8")
+        cls._register(".json", json_good, json_bad)
+
+        xml_good = Path(cls.temp_dir) / "good.xml"
+        xml_bad = Path(cls.temp_dir) / "bad.xml"
+        xml_good.write_text("<root><item>ok</item></root>", encoding="utf-8")
+        xml_bad.write_text("<root>", encoding="utf-8")
+        cls._register(".xml", xml_good, xml_bad)
 
     def test_good_images(self):
         for ext in self.image_extensions:
@@ -217,8 +303,24 @@ class TestFileInspector(unittest.TestCase):
         is_ok, message = inspect_file(self.bad_files[".rar"])
         self.assertFalse(is_ok, "损坏的 RAR 不应通过检查")
 
+    def test_compressed_files(self):
+        for ext in (".gz", ".bz2", ".tar", ".tar.gz", ".tar.bz2", ".7z"):
+            with self.subTest(ext=ext):
+                is_ok, message = inspect_file(self.good_files[ext])
+                self.assertTrue(is_ok, f"{ext} 应通过检查: {message}")
+                is_ok, message = inspect_file(self.bad_files[ext])
+                self.assertFalse(is_ok, f"损坏的 {ext} 不应通过检查")
+
+    def test_text_files(self):
+        for ext in (".json", ".xml"):
+            with self.subTest(ext=ext):
+                is_ok, message = inspect_file(self.good_files[ext])
+                self.assertTrue(is_ok, f"{ext} 应通过检查: {message}")
+                is_ok, message = inspect_file(self.bad_files[ext])
+                self.assertFalse(is_ok, f"损坏的 {ext} 不应通过检查")
+
     def test_media_files(self):
-        for ext in (".mp3", ".mp4"):
+        for ext in (".mp3", ".mp4", ".flac", ".ogg"):
             with self.subTest(ext=ext):
                 is_ok, message = inspect_file(self.good_files[ext])
                 self.assertTrue(is_ok, f"{ext} 应通过检查: {message}")

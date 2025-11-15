@@ -9,7 +9,14 @@ from xlrd.biffh import XLRDError
 def check_excel_file(file_path):
     """检查.xlsx是否损坏"""
     try:
-        load_workbook(filename=file_path)
+        workbook = load_workbook(filename=file_path, read_only=True, data_only=True)
+        try:
+            for sheet_name in workbook.sheetnames:
+                sheet = workbook[sheet_name]
+                _ = sheet.cell(row=1, column=1).value
+        finally:
+            workbook.close()
+
         return True, "Excel文件(.xlsx)检查通过，文件未损坏。"
     except InvalidFileException:
         return False, "Excel文件(.xlsx)损坏或格式不正确。"

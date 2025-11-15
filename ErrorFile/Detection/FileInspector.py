@@ -1,12 +1,20 @@
 import os
-from typing import Callable, Dict, Iterable, Tuple
+from typing import Callable, Dict, Iterable, Optional, Tuple
 
-from .ArchiveInspector import check_rar_file, check_zip_file
+from .ArchiveInspector import (
+    check_7z_file,
+    check_bzip2_file,
+    check_gzip_file,
+    check_rar_file,
+    check_tar_file,
+    check_zip_file,
+)
 from .ExcelInspector import check_excel_file, check_xls_file
 from .ImageInspector_precise import ImageInspector as ImageInspectorPrecise
 from .MediaInspector import check_media_file
 from .PDFInspector import PDFInspector
 from .PowerPointInspector import check_pptx_file
+from .TextInspector import check_json_file, check_xml_file
 from .WordInspector import check_docx_file
 
 InspectorCallable = Callable[[str, str], Tuple[bool, str]]
@@ -63,6 +71,12 @@ def _build_registry() -> Dict[str, InspectorCallable]:
     registry[".pptx"] = _wrap_path_only(check_pptx_file)
     registry[".zip"] = _wrap_path_only(check_zip_file)
     registry[".rar"] = _wrap_path_only(check_rar_file)
+    registry[".7z"] = _wrap_path_only(check_7z_file)
+    registry[".tar"] = _wrap_path_only(check_tar_file)
+    registry[".tar.gz"] = _wrap_path_only(check_tar_file)
+    registry[".tar.bz2"] = _wrap_path_only(check_tar_file)
+    registry[".gz"] = _wrap_path_only(check_gzip_file)
+    registry[".bz2"] = _wrap_path_only(check_bzip2_file)
 
     def _wrap_media(extension: str) -> InspectorCallable:
         def _wrapped(file_path: str, _: str) -> Tuple[bool, str]:
@@ -72,6 +86,12 @@ def _build_registry() -> Dict[str, InspectorCallable]:
 
     registry[".mp3"] = _wrap_media(".mp3")
     registry[".mp4"] = _wrap_media(".mp4")
+    registry[".flac"] = _wrap_media(".flac")
+    registry[".ogg"] = _wrap_media(".ogg")
+    registry[".oga"] = _wrap_media(".ogg")
+
+    registry[".json"] = _wrap_path_only(check_json_file)
+    registry[".xml"] = _wrap_path_only(check_xml_file)
     return registry
 
 
@@ -95,10 +115,17 @@ class FileInspector:
             raise ValueError("图片检测模式仅支持 'precise'")
         self.file_path = file_path
         self.mode = mode or "precise"
+        self.file_path_lower = file_path.lower()
         self.extension = os.path.splitext(file_path)[-1].lower()
 
     def inspect(self):
-        inspector = INSPECTOR_REGISTRY.get(self.extension)
+        inspector = self._resolve_inspector()
         if inspector:
             return inspector(self.file_path, self.mode)
         return False, f"不支持的文件类型: {self.extension}"
+
+    def _resolve_inspector(self) -> Optional[InspectorCallable]:
+        for extension in sorted(INSPECTOR_REGISTRY.keys(), key=len, reverse=True):
+            if self.file_path_lower.endswith(extension):
+                return INSPECTOR_REGISTRY[extension]
+        return None
