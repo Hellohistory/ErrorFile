@@ -7,3 +7,4 @@ python-docx~=0.8.11
 python-pptx~=1.0.2
 rarfile~=4.2
 mutagen~=1.47.0
+py7zr~=0.20.8

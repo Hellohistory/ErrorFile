@@ -7,7 +7,16 @@ from docx.opc.exceptions import PackageNotFoundError
 def check_docx_file(file_path):
     """检查Word文档(.docx)是否损坏"""
     try:
-        Document(file_path)
+        doc = Document(file_path)
+
+        for paragraph in doc.paragraphs:
+            _ = paragraph.text
+
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    _ = cell.text
+
         return True, "Word文档(.docx)检查通过，文件未损坏。"
     except PackageNotFoundError:
         return False, "Word文档(.docx)损坏或不是有效的docx格式。"
