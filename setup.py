@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="ErrorFile",
-    version="0.1.6",
+    version="0.1.8",
     packages=find_packages(),
     author="Hellohistory",
     author_email="etojsyc521@gmail.com",
@@ -31,7 +31,7 @@ setup(
     python_requires=">=3.7",
     install_requires=[
         "pypdf2",
-        "Pillow>=11.1.0",
+        "Pillow>=10.4.0,<10.5.0",
         "openpyxl",
         "xlrd",
         "python-docx",
