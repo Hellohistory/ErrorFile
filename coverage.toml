@@ -1,0 +1,10 @@
+[run]
+branch = true
+source = ["ErrorFile"]
+
+[report]
+show_missing = true
+skip_covered = true
+
+[xml]
+output = "coverage.xml"
