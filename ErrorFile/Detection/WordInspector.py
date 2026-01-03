@@ -5,7 +5,13 @@ import zipfile
 from docx import Document
 from docx.opc.exceptions import PackageNotFoundError
 
-from ..report import TAG_CORRUPTED, TAG_INVALID_FORMAT, TAG_IO_ERROR, fail_finding, ok_finding
+from ..report import (
+    TAG_CORRUPTED,
+    TAG_INVALID_FORMAT,
+    TAG_IO_ERROR,
+    fail_finding,
+    ok_finding,
+)
 
 
 def _fast_check_docx(file_path):

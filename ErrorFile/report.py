@@ -63,6 +63,8 @@ def ok_finding(message: str, *tags: str) -> InspectionFinding:
     return InspectionFinding(True, message, (TAG_OK,) + tuple(tags))
 
 
-def fail_finding(message: str, *tags: str, error: Optional[str] = None) -> InspectionFinding:
+def fail_finding(
+    message: str, *tags: str, error: Optional[str] = None
+) -> InspectionFinding:
     normalized_tags = tuple(tags) if tags else (TAG_UNKNOWN_ERROR,)
     return InspectionFinding(False, message, normalized_tags, error=error)

@@ -5,7 +5,13 @@ from mutagen import File
 from mutagen.mp3 import HeaderNotFoundError
 from mutagen.mp4 import MP4StreamInfoError
 
-from ..report import TAG_CORRUPTED, TAG_INVALID_FORMAT, TAG_IO_ERROR, fail_finding, ok_finding
+from ..report import (
+    TAG_CORRUPTED,
+    TAG_INVALID_FORMAT,
+    TAG_IO_ERROR,
+    fail_finding,
+    ok_finding,
+)
 
 MEDIA_TYPE_HINTS = {
     ".mp3": "MP3 audio",
@@ -65,7 +71,9 @@ def check_media_file(file_path, extension, mode="deep"):
         )
 
     if mode == "fast":
-        return ok_finding(f"{MEDIA_TYPE_HINTS.get(extension, 'media')} fast check passed.")
+        return ok_finding(
+            f"{MEDIA_TYPE_HINTS.get(extension, 'media')} fast check passed."
+        )
 
     tags = getattr(audio, "tags", None)
     if tags:

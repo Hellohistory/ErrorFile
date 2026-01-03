@@ -7,7 +7,13 @@ from openpyxl import load_workbook
 from openpyxl.utils.exceptions import InvalidFileException
 from xlrd.biffh import XLRDError
 
-from ..report import TAG_CORRUPTED, TAG_INVALID_FORMAT, TAG_IO_ERROR, fail_finding, ok_finding
+from ..report import (
+    TAG_CORRUPTED,
+    TAG_INVALID_FORMAT,
+    TAG_IO_ERROR,
+    fail_finding,
+    ok_finding,
+)
 
 
 def _fast_check_xlsx(file_path):
