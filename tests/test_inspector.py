@@ -9,7 +9,8 @@ import zipfile
 from pathlib import Path
 
 import py7zr
-from ErrorFile import inspect_file
+from ErrorFile import inspect_file, inspect_file_report
+from ErrorFile.report import TAG_INVALID_MODE, TAG_NOT_FOUND, TAG_OK
 from PIL import Image
 from PyPDF2 import PdfWriter
 from docx import Document
@@ -105,7 +106,6 @@ class TestFileInspector(unittest.TestCase):
 
     @classmethod
     def _prepare_excel_files(cls):
-        # .xlsx
         good_xlsx = Path(cls.temp_dir) / "good.xlsx"
         bad_xlsx = Path(cls.temp_dir) / "bad.xlsx"
         workbook = Workbook()
@@ -115,7 +115,6 @@ class TestFileInspector(unittest.TestCase):
         bad_xlsx.write_text("not an xlsx", encoding="utf-8")
         cls._register(".xlsx", good_xlsx, bad_xlsx)
 
-        # .xls
         good_xls = Path(cls.temp_dir) / "good.xls"
         bad_xls = Path(cls.temp_dir) / "bad.xls"
         good_xls.write_bytes(GOOD_XLS_BYTES)
@@ -254,89 +253,93 @@ class TestFileInspector(unittest.TestCase):
     def test_good_images(self):
         for ext in self.image_extensions:
             with self.subTest(ext=ext):
-                is_ok, message = inspect_file(self.good_files[ext], mode="precise")
-                self.assertTrue(is_ok, f"{ext} 图片应通过检查: {message}")
+                is_ok, message = inspect_file(self.good_files[ext], mode="deep")
+                self.assertTrue(is_ok, f"{ext} image should pass: {message}")
 
     def test_corrupted_images(self):
         for ext in self.image_extensions:
             with self.subTest(ext=ext):
-                is_ok, message = inspect_file(self.bad_files[ext], mode="precise")
-                self.assertFalse(is_ok, f"{ext} 损坏图片不应通过检查: {message}")
+                is_ok, message = inspect_file(self.bad_files[ext], mode="deep")
+                self.assertFalse(is_ok, f"{ext} corrupted image should fail: {message}")
 
     def test_pdf_files(self):
         good_path = self.good_files[".pdf"]
         bad_path = self.bad_files[".pdf"]
         is_ok, message = inspect_file(good_path)
-        self.assertTrue(is_ok, f"PDF 应通过检查: {message}")
+        self.assertTrue(is_ok, f"PDF should pass: {message}")
         is_ok, message = inspect_file(bad_path)
-        self.assertFalse(is_ok, "损坏的 PDF 不应通过检查")
+        self.assertFalse(is_ok, "Corrupted PDF should fail.")
 
     def test_excel_files(self):
         for ext in (".xlsx", ".xls"):
             with self.subTest(ext=ext):
                 is_ok, message = inspect_file(self.good_files[ext])
-                self.assertTrue(is_ok, f"{ext} 应通过检查: {message}")
+                self.assertTrue(is_ok, f"{ext} should pass: {message}")
                 is_ok, message = inspect_file(self.bad_files[ext])
-                self.assertFalse(is_ok, f"损坏的 {ext} 不应通过检查")
+                self.assertFalse(is_ok, f"Corrupted {ext} should fail.")
 
     def test_docx_files(self):
         is_ok, message = inspect_file(self.good_files[".docx"])
-        self.assertTrue(is_ok, f"DOCX 应通过检查: {message}")
+        self.assertTrue(is_ok, f"DOCX should pass: {message}")
         is_ok, message = inspect_file(self.bad_files[".docx"])
-        self.assertFalse(is_ok, "损坏的 DOCX 不应通过检查")
+        self.assertFalse(is_ok, "Corrupted DOCX should fail.")
 
     def test_pptx_files(self):
         is_ok, message = inspect_file(self.good_files[".pptx"])
-        self.assertTrue(is_ok, f"PPTX 应通过检查: {message}")
+        self.assertTrue(is_ok, f"PPTX should pass: {message}")
         is_ok, message = inspect_file(self.bad_files[".pptx"])
-        self.assertFalse(is_ok, "损坏的 PPTX 不应通过检查")
+        self.assertFalse(is_ok, "Corrupted PPTX should fail.")
 
     def test_zip_files(self):
         is_ok, message = inspect_file(self.good_files[".zip"])
-        self.assertTrue(is_ok, f"ZIP 应通过检查: {message}")
+        self.assertTrue(is_ok, f"ZIP should pass: {message}")
         is_ok, message = inspect_file(self.bad_files[".zip"])
-        self.assertFalse(is_ok, "损坏的 ZIP 不应通过检查")
+        self.assertFalse(is_ok, "Corrupted ZIP should fail.")
 
     def test_rar_files(self):
         is_ok, message = inspect_file(self.good_files[".rar"])
-        self.assertTrue(is_ok, f"RAR 应通过检查: {message}")
+        self.assertTrue(is_ok, f"RAR should pass: {message}")
         is_ok, message = inspect_file(self.bad_files[".rar"])
-        self.assertFalse(is_ok, "损坏的 RAR 不应通过检查")
+        self.assertFalse(is_ok, "Corrupted RAR should fail.")
 
     def test_compressed_files(self):
         for ext in (".gz", ".bz2", ".tar", ".tar.gz", ".tar.bz2", ".7z"):
             with self.subTest(ext=ext):
                 is_ok, message = inspect_file(self.good_files[ext])
-                self.assertTrue(is_ok, f"{ext} 应通过检查: {message}")
+                self.assertTrue(is_ok, f"{ext} should pass: {message}")
                 is_ok, message = inspect_file(self.bad_files[ext])
-                self.assertFalse(is_ok, f"损坏的 {ext} 不应通过检查")
+                self.assertFalse(is_ok, f"Corrupted {ext} should fail.")
 
     def test_text_files(self):
         for ext in (".json", ".xml"):
             with self.subTest(ext=ext):
                 is_ok, message = inspect_file(self.good_files[ext])
-                self.assertTrue(is_ok, f"{ext} 应通过检查: {message}")
+                self.assertTrue(is_ok, f"{ext} should pass: {message}")
                 is_ok, message = inspect_file(self.bad_files[ext])
-                self.assertFalse(is_ok, f"损坏的 {ext} 不应通过检查")
+                self.assertFalse(is_ok, f"Corrupted {ext} should fail.")
 
     def test_media_files(self):
         for ext in (".mp3", ".mp4", ".flac", ".ogg"):
             with self.subTest(ext=ext):
                 is_ok, message = inspect_file(self.good_files[ext])
-                self.assertTrue(is_ok, f"{ext} 应通过检查: {message}")
+                self.assertTrue(is_ok, f"{ext} should pass: {message}")
                 is_ok, message = inspect_file(self.bad_files[ext])
-                self.assertFalse(is_ok, f"损坏的 {ext} 不应通过检查")
+                self.assertFalse(is_ok, f"Corrupted {ext} should fail.")
+
+    def test_fast_mode(self):
+        report = inspect_file_report(self.good_files[".jpg"], mode="fast")
+        self.assertTrue(report.ok)
+        self.assertIn(TAG_OK, report.tags)
 
     def test_invalid_mode(self):
-        good_jpg = self.good_files[".jpg"]
-        is_ok, message = inspect_file(good_jpg, mode="fast")
-        self.assertFalse(is_ok)
-        self.assertIn("仅支持", message)
+        report = inspect_file_report(self.good_files[".jpg"], mode="unknown")
+        self.assertFalse(report.ok)
+        self.assertIn(TAG_INVALID_MODE, report.tags)
 
     def test_non_existent_file(self):
-        is_ok, message = inspect_file("non_existent_file_12345.xyz")
-        self.assertFalse(is_ok)
-        self.assertIn("文件未找到", message)
+        report = inspect_file_report("non_existent_file_12345.xyz")
+        self.assertFalse(report.ok)
+        self.assertIn(TAG_NOT_FOUND, report.tags)
 
 
 if __name__ == "__main__":

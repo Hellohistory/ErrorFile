@@ -8,7 +8,6 @@ setup(
     version="0.2.0",
     packages=find_packages(),
     author="Hellohistory",
-    author_email="etojsyc521@gmail.com",
     description="一个用于检测图片、文档、压缩包与媒体文件是否损坏的Python包",
     long_description=long_description,
     long_description_content_type="text/markdown",
