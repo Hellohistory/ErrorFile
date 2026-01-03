@@ -1,22 +1,66 @@
-# 路径：ErrorFile/Detection/PowerPointInspector.py
-"""PowerPoint 文件检测工具。"""
+# ErrorFile/Detection/PowerPointInspector.py
+"""PowerPoint inspection utilities."""
+
+import zipfile
 
 from pptx import Presentation
 from pptx.exc import PackageNotFoundError
 
+from ..report import (
+    TAG_CORRUPTED,
+    TAG_INVALID_FORMAT,
+    TAG_IO_ERROR,
+    fail_finding,
+    ok_finding,
+)
 
-def check_pptx_file(file_path):
-    """检查 .pptx 文件是否损坏，并提供详细信息。"""
 
+def _fast_check_pptx(file_path):
+    try:
+        with zipfile.ZipFile(file_path, "r") as archive:
+            names = set(archive.namelist())
+            required = {"[Content_Types].xml", "ppt/presentation.xml"}
+            if not required.issubset(names):
+                return fail_finding(
+                    "PPTX missing required parts; file may be corrupted.",
+                    TAG_CORRUPTED,
+                    TAG_INVALID_FORMAT,
+                )
+    except zipfile.BadZipFile as exc:
+        return fail_finding(
+            f"PPTX is not a valid ZIP container: {exc}",
+            TAG_INVALID_FORMAT,
+            error=str(exc),
+        )
+    except Exception as exc:
+        return fail_finding(
+            f"PPTX fast check failed: {exc}",
+            TAG_IO_ERROR,
+            error=str(exc),
+        )
+    return ok_finding("PPTX fast check passed.")
+
+
+def check_pptx_file(file_path, mode="deep"):
+    """Check .pptx integrity."""
+    if mode == "fast":
+        return _fast_check_pptx(file_path)
     try:
         presentation = Presentation(file_path)
-
         for slide in presentation.slides:
             for shape in slide.shapes:
                 _ = shape.has_text_frame
-
-        return True, "PowerPoint 文档(.pptx)检查通过，文件未损坏。"
+        return ok_finding("PPTX deep check passed.")
     except PackageNotFoundError as exc:
-        return False, f"PowerPoint 文档(.pptx)损坏或不是有效的 pptx 格式: {exc}"
-    except Exception as exc:  # pragma: no cover - 其他异常依赖第三方库实现
-        return False, f"检测 PowerPoint 文档(.pptx)时发生错误: {exc}"
+        return fail_finding(
+            f"PPTX corrupted or invalid: {exc}",
+            TAG_CORRUPTED,
+            TAG_INVALID_FORMAT,
+            error=str(exc),
+        )
+    except Exception as exc:  # pragma: no cover - depends on third-party lib
+        return fail_finding(
+            f"PPTX deep check failed: {exc}",
+            TAG_IO_ERROR,
+            error=str(exc),
+        )

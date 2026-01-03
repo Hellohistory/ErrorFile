@@ -1,43 +1,50 @@
-# 路径：ErrorFile/Detection/MediaInspector.py
-"""音视频文件检测工具。"""
+# ErrorFile/Detection/MediaInspector.py
+"""Audio/video inspection utilities."""
 
 from mutagen import File
 from mutagen.mp3 import HeaderNotFoundError
 from mutagen.mp4 import MP4StreamInfoError
 
+from ..report import (
+    TAG_CORRUPTED,
+    TAG_INVALID_FORMAT,
+    TAG_IO_ERROR,
+    fail_finding,
+    ok_finding,
+)
 
 MEDIA_TYPE_HINTS = {
-    ".mp3": "MP3 音频",
-    ".mp4": "MP4 视频",
-    ".flac": "FLAC 无损音频",
-    ".ogg": "OGG 音频",
-    ".oga": "OGG 音频",
+    ".mp3": "MP3 audio",
+    ".mp4": "MP4 video",
+    ".flac": "FLAC audio",
+    ".ogg": "OGG audio",
+    ".oga": "OGG audio",
 }
 
 
-def check_media_file(file_path, extension):
-    """使用 Mutagen 对音视频文件进行读取校验。"""
-
+def check_media_file(file_path, extension, mode="deep"):
+    """Use Mutagen to validate media file structure."""
     try:
         audio = File(file_path)
-    except Exception as exc:  # pragma: no cover - 文件 IO 异常依赖环境
-        return (
-            False,
-            f"读取 {MEDIA_TYPE_HINTS.get(extension, '媒体')} 文件时发生错误: {exc}",
+    except Exception as exc:  # pragma: no cover - IO depends on environment
+        return fail_finding(
+            f"Failed to read {MEDIA_TYPE_HINTS.get(extension, 'media')} file: {exc}",
+            TAG_IO_ERROR,
+            error=str(exc),
         )
 
     if audio is None:
-        return (
-            False,
-            f"Mutagen 无法识别该 {MEDIA_TYPE_HINTS.get(extension, '媒体')} 文件的格式，可能已损坏。",
+        return fail_finding(
+            f"Mutagen cannot recognize {MEDIA_TYPE_HINTS.get(extension, 'media')} format.",
+            TAG_INVALID_FORMAT,
         )
 
     try:
         stream_info = getattr(audio, "info", None)
         if stream_info is None:
-            return (
-                False,
-                f"未能解析 {MEDIA_TYPE_HINTS.get(extension, '媒体')} 文件的音视频流信息，文件可能已损坏。",
+            return fail_finding(
+                f"Missing stream info for {MEDIA_TYPE_HINTS.get(extension, 'media')} file.",
+                TAG_CORRUPTED,
             )
 
         _ = getattr(stream_info, "length")
@@ -45,19 +52,27 @@ def check_media_file(file_path, extension):
             if hasattr(stream_info, attr):
                 _ = getattr(stream_info, attr)
     except HeaderNotFoundError as exc:
-        return (
-            False,
-            f"{MEDIA_TYPE_HINTS.get(extension, '媒体')} 文件音频帧缺失或损坏: {exc}",
+        return fail_finding(
+            f"{MEDIA_TYPE_HINTS.get(extension, 'media')} missing audio headers: {exc}",
+            TAG_CORRUPTED,
+            error=str(exc),
         )
     except MP4StreamInfoError as exc:
-        return (
-            False,
-            f"{MEDIA_TYPE_HINTS.get(extension, '媒体')} 文件的 moov 元数据缺失或损坏: {exc}",
+        return fail_finding(
+            f"{MEDIA_TYPE_HINTS.get(extension, 'media')} missing moov atom: {exc}",
+            TAG_CORRUPTED,
+            error=str(exc),
         )
-    except Exception as exc:  # pragma: no cover - 取决于具体编解码器
-        return (
-            False,
-            f"读取 {MEDIA_TYPE_HINTS.get(extension, '媒体')} 文件音视频流信息时发生未知错误: {exc}",
+    except Exception as exc:  # pragma: no cover
+        return fail_finding(
+            f"Failed to read stream info: {exc}",
+            TAG_IO_ERROR,
+            error=str(exc),
+        )
+
+    if mode == "fast":
+        return ok_finding(
+            f"{MEDIA_TYPE_HINTS.get(extension, 'media')} fast check passed."
         )
 
     tags = getattr(audio, "tags", None)
@@ -65,28 +80,32 @@ def check_media_file(file_path, extension):
         try:
             for key in list(tags.keys()):
                 _ = tags.get(key)
-        except Exception as exc:  # pragma: no cover - 取决于标签结构
-            return (
-                False,
-                f"解析 {MEDIA_TYPE_HINTS.get(extension, '媒体')} 文件标签信息时发生错误: {exc}",
+        except Exception as exc:  # pragma: no cover
+            return fail_finding(
+                f"Failed to parse tags: {exc}",
+                TAG_IO_ERROR,
+                error=str(exc),
             )
 
     try:
         audio.pprint()
     except HeaderNotFoundError as exc:
-        return (
-            False,
-            f"{MEDIA_TYPE_HINTS.get(extension, '媒体')} 文件音频帧缺失或损坏: {exc}",
+        return fail_finding(
+            f"{MEDIA_TYPE_HINTS.get(extension, 'media')} missing audio headers: {exc}",
+            TAG_CORRUPTED,
+            error=str(exc),
         )
     except MP4StreamInfoError as exc:
-        return (
-            False,
-            f"{MEDIA_TYPE_HINTS.get(extension, '媒体')} 文件的 moov 元数据缺失或损坏: {exc}",
+        return fail_finding(
+            f"{MEDIA_TYPE_HINTS.get(extension, 'media')} missing moov atom: {exc}",
+            TAG_CORRUPTED,
+            error=str(exc),
         )
-    except Exception as exc:  # pragma: no cover - 取决于具体编解码器
-        return (
-            False,
-            f"解析 {MEDIA_TYPE_HINTS.get(extension, '媒体')} 文件元数据时发生未知错误: {exc}",
+    except Exception as exc:  # pragma: no cover
+        return fail_finding(
+            f"Failed to parse metadata: {exc}",
+            TAG_IO_ERROR,
+            error=str(exc),
         )
 
-    return True, f"{MEDIA_TYPE_HINTS.get(extension, '媒体')} 文件检查通过，未发现损坏。"
+    return ok_finding(f"{MEDIA_TYPE_HINTS.get(extension, 'media')} deep check passed.")

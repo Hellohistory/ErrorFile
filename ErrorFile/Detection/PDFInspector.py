@@ -3,40 +3,111 @@
 import PyPDF2
 from PyPDF2.errors import PdfReadError
 
+from ..report import (
+    TAG_CORRUPTED,
+    TAG_ENCRYPTED,
+    TAG_INVALID_FORMAT,
+    TAG_IO_ERROR,
+    fail_finding,
+    ok_finding,
+)
+
 
 class PDFInspector:
-    def __init__(self, file_path):
+    def __init__(self, file_path: str):
         self.file_path = file_path
 
-    def detailed_check_pdf(self):
-        """对PDF文件进行详细的结构性检查"""
+    def _fast_check(self):
+        try:
+            with open(self.file_path, "rb") as file:
+                header = file.read(5)
+                if header != b"%PDF-":
+                    return fail_finding(
+                        "PDF header invalid.",
+                        TAG_INVALID_FORMAT,
+                    )
+
+                reader = PyPDF2.PdfReader(file, strict=False)
+                if reader.is_encrypted:
+                    return fail_finding(
+                        "PDF is encrypted; cannot inspect contents.",
+                        TAG_ENCRYPTED,
+                    )
+                if len(reader.pages) == 0:
+                    return fail_finding(
+                        "PDF has no pages; file may be corrupted.",
+                        TAG_CORRUPTED,
+                    )
+
+            return ok_finding("PDF fast check passed.")
+        except PdfReadError as exc:
+            return fail_finding(
+                f"PDF read error: {exc}",
+                TAG_CORRUPTED,
+                error=str(exc),
+            )
+        except Exception as exc:
+            return fail_finding(
+                f"PDF fast check failed: {exc}",
+                TAG_IO_ERROR,
+                error=str(exc),
+            )
+
+    def _deep_check(self):
         try:
             with open(self.file_path, "rb") as file:
                 reader = PyPDF2.PdfReader(file, strict=True)
 
                 if reader.is_encrypted:
-                    # 如果文件被密码保护，我们无法深入检查，但文件本身是有效的
-                    return True, "PDF文件已加密，无法进行深入检查，但文件结构有效。"
+                    return fail_finding(
+                        "PDF is encrypted; cannot inspect contents.",
+                        TAG_ENCRYPTED,
+                    )
 
                 if len(reader.pages) == 0:
-                    return False, "PDF文件不包含任何页面，可能已损坏。"
+                    return fail_finding(
+                        "PDF has no pages; file may be corrupted.",
+                        TAG_CORRUPTED,
+                    )
 
-                # 尝试访问每一页的核心对象
                 for page in reader.pages:
-                    # 这是一个比提取文本更可靠的底层检查
                     page.get_contents()
 
-        except PdfReadError as e:
-            error_message = str(e)
-            lowered = error_message.lower()
+        except PdfReadError as exc:
+            lowered = str(exc).lower()
             if "encrypted" in lowered or "password" in lowered:
-                return False, f"PDF文件已加密且缺少正确的密码: {error_message}"
+                return fail_finding(
+                    f"PDF is encrypted and requires a password: {exc}",
+                    TAG_ENCRYPTED,
+                    error=str(exc),
+                )
             if "xref" in lowered:
-                return False, f"PDF文件交叉引用表 (XRef) 损坏: {error_message}"
+                return fail_finding(
+                    f"PDF xref corrupted: {exc}",
+                    TAG_CORRUPTED,
+                    error=str(exc),
+                )
             if "file has not been decrypted" in lowered:
-                return False, "PDF文件需要密码解密后才能读取内容。"
-            return False, f"PDF文件损坏或结构异常: {error_message}"
-        except Exception as e:
-            return False, f"检测PDF过程中发生错误: {str(e)}"
+                return fail_finding(
+                    "PDF requires decryption to read contents.",
+                    TAG_ENCRYPTED,
+                )
+            return fail_finding(
+                f"PDF structure corrupted: {exc}",
+                TAG_CORRUPTED,
+                error=str(exc),
+            )
+        except Exception as exc:
+            return fail_finding(
+                f"PDF deep check failed: {exc}",
+                TAG_IO_ERROR,
+                error=str(exc),
+            )
 
-        return True, "PDF文件检查通过，未发现结构性损坏。"
+        return ok_finding("PDF deep check passed.")
+
+    def check_pdf(self, mode: str):
+        """Check PDF in fast or deep mode."""
+        if mode == "fast":
+            return self._fast_check()
+        return self._deep_check()

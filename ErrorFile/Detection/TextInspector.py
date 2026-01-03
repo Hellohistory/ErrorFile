@@ -1,30 +1,46 @@
-# 路径：ErrorFile/Detection/TextInspector.py
-"""纯文本与结构化数据文件检测工具。"""
+# ErrorFile/Detection/TextInspector.py
+"""Plain text and structured data inspectors."""
 
 import json
 import xml.etree.ElementTree as ET
 
+from ..report import TAG_INVALID_FORMAT, TAG_IO_ERROR, fail_finding, ok_finding
 
-def check_json_file(file_path):
-    """检查 .json 文件是否为有效的 JSON 文档。"""
 
+def check_json_file(file_path, mode="deep"):
+    """Check .json syntax validity."""
     try:
         with open(file_path, "r", encoding="utf-8") as json_file:
             json.load(json_file)
     except json.JSONDecodeError as exc:
-        return False, f"JSON 文件格式错误: {exc}"
+        return fail_finding(
+            f"JSON format error: {exc}",
+            TAG_INVALID_FORMAT,
+            error=str(exc),
+        )
     except (IOError, UnicodeDecodeError) as exc:
-        return False, f"无法读取 JSON 文件: {exc}"
-    return True, "JSON 文件语法正确。"
+        return fail_finding(
+            f"Failed to read JSON file: {exc}",
+            TAG_IO_ERROR,
+            error=str(exc),
+        )
+    return ok_finding("JSON check passed.")
 
 
-def check_xml_file(file_path):
-    """检查 .xml 文件是否能够成功解析。"""
-
+def check_xml_file(file_path, mode="deep"):
+    """Check .xml syntax validity."""
     try:
         ET.parse(file_path)
     except ET.ParseError as exc:
-        return False, f"XML 文件格式错误: {exc}"
+        return fail_finding(
+            f"XML format error: {exc}",
+            TAG_INVALID_FORMAT,
+            error=str(exc),
+        )
     except IOError as exc:
-        return False, f"无法读取 XML 文件: {exc}"
-    return True, "XML 文件语法正确。"
+        return fail_finding(
+            f"Failed to read XML file: {exc}",
+            TAG_IO_ERROR,
+            error=str(exc),
+        )
+    return ok_finding("XML check passed.")

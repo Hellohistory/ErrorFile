@@ -1,13 +1,51 @@
 # ErrorFile/Detection/ExcelInspector.py
 
+import zipfile
+
 import xlrd
 from openpyxl import load_workbook
 from openpyxl.utils.exceptions import InvalidFileException
 from xlrd.biffh import XLRDError
 
+from ..report import (
+    TAG_CORRUPTED,
+    TAG_INVALID_FORMAT,
+    TAG_IO_ERROR,
+    fail_finding,
+    ok_finding,
+)
 
-def check_excel_file(file_path):
-    """检查.xlsx是否损坏"""
+
+def _fast_check_xlsx(file_path):
+    try:
+        with zipfile.ZipFile(file_path, "r") as archive:
+            names = set(archive.namelist())
+            required = {"[Content_Types].xml", "xl/workbook.xml"}
+            if not required.issubset(names):
+                return fail_finding(
+                    "XLSX missing required parts; file may be corrupted.",
+                    TAG_CORRUPTED,
+                    TAG_INVALID_FORMAT,
+                )
+    except zipfile.BadZipFile as exc:
+        return fail_finding(
+            f"XLSX is not a valid ZIP container: {exc}",
+            TAG_INVALID_FORMAT,
+            error=str(exc),
+        )
+    except Exception as exc:
+        return fail_finding(
+            f"XLSX fast check failed: {exc}",
+            TAG_IO_ERROR,
+            error=str(exc),
+        )
+    return ok_finding("XLSX fast check passed.")
+
+
+def check_excel_file(file_path, mode="deep"):
+    """Check .xlsx integrity."""
+    if mode == "fast":
+        return _fast_check_xlsx(file_path)
     try:
         workbook = load_workbook(filename=file_path, read_only=True, data_only=True)
         try:
@@ -17,19 +55,37 @@ def check_excel_file(file_path):
         finally:
             workbook.close()
 
-        return True, "Excel文件(.xlsx)检查通过，文件未损坏。"
-    except InvalidFileException:
-        return False, "Excel文件(.xlsx)损坏或格式不正确。"
-    except Exception as e:
-        return False, f"检测Excel文件(.xlsx)时发生错误: {str(e)}"
+        return ok_finding("XLSX deep check passed.")
+    except InvalidFileException as exc:
+        return fail_finding(
+            f"XLSX corrupted or invalid: {exc}",
+            TAG_CORRUPTED,
+            TAG_INVALID_FORMAT,
+            error=str(exc),
+        )
+    except Exception as exc:
+        return fail_finding(
+            f"XLSX deep check failed: {exc}",
+            TAG_IO_ERROR,
+            error=str(exc),
+        )
 
 
-def check_xls_file(file_path):
-    """检查.xls是否损坏"""
+def check_xls_file(file_path, mode="deep"):
+    """Check .xls integrity."""
     try:
         xlrd.open_workbook(file_path)
-        return True, "Excel文件(.xls)检查通过，文件未损坏。"
-    except XLRDError:
-        return False, "Excel文件(.xls)损坏或格式不正确。"
-    except Exception as e:
-        return False, f"检测Excel文件(.xls)时发生错误: {str(e)}"
+        return ok_finding("XLS check passed.")
+    except XLRDError as exc:
+        return fail_finding(
+            f"XLS corrupted or invalid: {exc}",
+            TAG_CORRUPTED,
+            TAG_INVALID_FORMAT,
+            error=str(exc),
+        )
+    except Exception as exc:
+        return fail_finding(
+            f"XLS check failed: {exc}",
+            TAG_IO_ERROR,
+            error=str(exc),
+        )
