@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="ErrorFile",
-    version="0.1.8",
+    version="0.2.0",
     packages=find_packages(),
     author="Hellohistory",
     author_email="etojsyc521@gmail.com",
