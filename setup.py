@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="ErrorFile",
-    version="0.2.0",
+    version="0.2.1",
     packages=find_packages(),
     author="Hellohistory",
     description="一个用于检测图片、文档、压缩包与媒体文件是否损坏的Python包",
