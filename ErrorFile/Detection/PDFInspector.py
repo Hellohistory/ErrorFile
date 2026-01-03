@@ -1,7 +1,5 @@
 # ErrorFile/Detection/PDFInspector.py
 
-import os
-
 import PyPDF2
 from PyPDF2.errors import PdfReadError
 
