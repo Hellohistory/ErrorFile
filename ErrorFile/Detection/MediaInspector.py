@@ -19,6 +19,7 @@ MEDIA_TYPE_HINTS = {
     ".flac": "FLAC audio",
     ".ogg": "OGG audio",
     ".oga": "OGG audio",
+    ".wav": "WAV audio",
 }
 
 

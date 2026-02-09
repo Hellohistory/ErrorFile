@@ -1,15 +1,18 @@
 import bz2
 import gzip
 import json
+import lzma
 import shutil
+import sqlite3
 import tarfile
 import tempfile
+import wave
 import unittest
 import zipfile
 from pathlib import Path
 
 import py7zr
-from ErrorFile import inspect_file, inspect_file_report
+from ErrorFile import inspect_file, inspect_file_report, inspect_files
 from ErrorFile.report import TAG_INVALID_MODE, TAG_NOT_FOUND, TAG_OK
 from PIL import Image
 from PyPDF2 import PdfWriter
@@ -205,6 +208,19 @@ class TestFileInspector(unittest.TestCase):
         tar_bz2_bad.write_text("not a tar.bz2", encoding="utf-8")
         cls._register(".tar.bz2", tar_bz2_good, tar_bz2_bad)
 
+        tar_xz_good = Path(cls.temp_dir) / "good.tar.xz"
+        tar_xz_bad = Path(cls.temp_dir) / "bad.tar.xz"
+        cls._create_tar_archive(tar_xz_good, "w:xz", tar_payload)
+        tar_xz_bad.write_text("not a tar.xz", encoding="utf-8")
+        cls._register(".tar.xz", tar_xz_good, tar_xz_bad)
+
+        xz_good = Path(cls.temp_dir) / "good.xz"
+        xz_bad = Path(cls.temp_dir) / "bad.xz"
+        with lzma.open(xz_good, "wb") as xz_file:
+            xz_file.write(b"xz ok")
+        xz_bad.write_text("not an xz", encoding="utf-8")
+        cls._register(".xz", xz_good, xz_bad)
+
     @classmethod
     def _create_tar_archive(cls, path: Path, mode: str, payload: Path) -> None:
         with tarfile.open(path, mode) as tar:
@@ -236,6 +252,16 @@ class TestFileInspector(unittest.TestCase):
         bad_ogg.write_text("not an ogg", encoding="utf-8")
         cls._register(".ogg", ogg_path, bad_ogg)
 
+        wav_path = Path(cls.temp_dir) / "good.wav"
+        bad_wav = Path(cls.temp_dir) / "bad.wav"
+        with wave.open(str(wav_path), "wb") as wav_file:
+            wav_file.setnchannels(1)
+            wav_file.setsampwidth(2)
+            wav_file.setframerate(8000)
+            wav_file.writeframes(b"\x00\x00" * 800)
+        bad_wav.write_text("not a wav", encoding="utf-8")
+        cls._register(".wav", wav_path, bad_wav)
+
     @classmethod
     def _prepare_text_files(cls):
         json_good = Path(cls.temp_dir) / "good.json"
@@ -249,6 +275,108 @@ class TestFileInspector(unittest.TestCase):
         xml_good.write_text("<root><item>ok</item></root>", encoding="utf-8")
         xml_bad.write_text("<root>", encoding="utf-8")
         cls._register(".xml", xml_good, xml_bad)
+
+        text_good = Path(cls.temp_dir) / "good.txt"
+        text_bad = Path(cls.temp_dir) / "bad.txt"
+        text_good.write_text("hello text", encoding="utf-8")
+        text_bad.write_bytes(b"\x00\x00\xff\xfe")
+        cls._register(".txt", text_good, text_bad)
+
+        csv_good = Path(cls.temp_dir) / "good.csv"
+        csv_bad = Path(cls.temp_dir) / "bad.csv"
+        csv_good.write_text("name,age\nalice,30\n", encoding="utf-8")
+        csv_bad.write_text('name,age\n"alice,30\n', encoding="utf-8")
+        cls._register(".csv", csv_good, csv_bad)
+
+        html_good = Path(cls.temp_dir) / "good.html"
+        html_bad = Path(cls.temp_dir) / "bad.html"
+        html_good.write_text("<html><body><p>ok</p></body></html>", encoding="utf-8")
+        html_bad.write_text("plain text without tags", encoding="utf-8")
+        cls._register(".html", html_good, html_bad)
+
+        ini_good = Path(cls.temp_dir) / "good.ini"
+        ini_bad = Path(cls.temp_dir) / "bad.ini"
+        ini_good.write_text("[main]\nname=ok\n", encoding="utf-8")
+        ini_bad.write_text("name=missing-section\n", encoding="utf-8")
+        cls._register(".ini", ini_good, ini_bad)
+
+        ndjson_good = Path(cls.temp_dir) / "good.ndjson"
+        ndjson_bad = Path(cls.temp_dir) / "bad.ndjson"
+        ndjson_good.write_text('{"name":"alice"}\n{"name":"bob"}\n', encoding="utf-8")
+        ndjson_bad.write_text('{"name":"alice"}\n{"name":}\n', encoding="utf-8")
+        cls._register(".ndjson", ndjson_good, ndjson_bad)
+
+        tsv_good = Path(cls.temp_dir) / "good.tsv"
+        tsv_bad = Path(cls.temp_dir) / "bad.tsv"
+        tsv_good.write_text("name\tage\nalice\t30\n", encoding="utf-8")
+        tsv_bad.write_text('name\tage\n"alice\t30\n', encoding="utf-8")
+        cls._register(".tsv", tsv_good, tsv_bad)
+
+        rtf_good = Path(cls.temp_dir) / "good.rtf"
+        rtf_bad = Path(cls.temp_dir) / "bad.rtf"
+        rtf_good.write_text("{\\rtf1\\ansi This is rtf}", encoding="utf-8")
+        rtf_bad.write_text("This is not rtf", encoding="utf-8")
+        cls._register(".rtf", rtf_good, rtf_bad)
+
+        eml_good = Path(cls.temp_dir) / "good.eml"
+        eml_bad = Path(cls.temp_dir) / "bad.eml"
+        eml_good.write_text(
+            "From: test@example.com\n"
+            "To: you@example.com\n"
+            "Subject: test\n"
+            "\n"
+            "hello\n",
+            encoding="utf-8",
+        )
+        eml_bad.write_text("body only no headers", encoding="utf-8")
+        cls._register(".eml", eml_good, eml_bad)
+
+        toml_good = Path(cls.temp_dir) / "good.toml"
+        toml_bad = Path(cls.temp_dir) / "bad.toml"
+        toml_good.write_text(
+            'title = "Example"\n'
+            "[owner]\n"
+            'name = "alice"\n',
+            encoding="utf-8",
+        )
+        toml_bad.write_text('title = "Example"\nowner = [\n', encoding="utf-8")
+        cls._register(".toml", toml_good, toml_bad)
+
+        yaml_good = Path(cls.temp_dir) / "good.yaml"
+        yaml_bad = Path(cls.temp_dir) / "bad.yaml"
+        yaml_good.write_text("name: alice\nage: 30\n", encoding="utf-8")
+        yaml_bad.write_text("name alice\nage 30\n", encoding="utf-8")
+        cls._register(".yaml", yaml_good, yaml_bad)
+
+        yml_good = Path(cls.temp_dir) / "good.yml"
+        yml_bad = Path(cls.temp_dir) / "bad.yml"
+        yml_good.write_text("- one\n- two\n", encoding="utf-8")
+        yml_bad.write_text("just plain words", encoding="utf-8")
+        cls._register(".yml", yml_good, yml_bad)
+
+        msg_good = Path(cls.temp_dir) / "good.msg"
+        msg_bad = Path(cls.temp_dir) / "bad.msg"
+        msg_good.write_bytes(b"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1" + b"\x00" * 64)
+        msg_bad.write_text("not a msg", encoding="utf-8")
+        cls._register(".msg", msg_good, msg_bad)
+
+        sqlite_good = Path(cls.temp_dir) / "good.sqlite"
+        sqlite_bad = Path(cls.temp_dir) / "bad.sqlite"
+        with sqlite3.connect(str(sqlite_good)) as conn:
+            conn.execute("CREATE TABLE sample (id INTEGER PRIMARY KEY, name TEXT)")
+            conn.execute("INSERT INTO sample(name) VALUES ('ok')")
+            conn.commit()
+        sqlite_bad.write_text("not a sqlite db", encoding="utf-8")
+        cls._register(".sqlite", sqlite_good, sqlite_bad)
+
+        db_good = Path(cls.temp_dir) / "good.db"
+        db_bad = Path(cls.temp_dir) / "bad.db"
+        with sqlite3.connect(str(db_good)) as conn:
+            conn.execute("CREATE TABLE sample (id INTEGER PRIMARY KEY, value TEXT)")
+            conn.execute("INSERT INTO sample(value) VALUES ('ok')")
+            conn.commit()
+        db_bad.write_text("not a db", encoding="utf-8")
+        cls._register(".db", db_good, db_bad)
 
     def test_good_images(self):
         for ext in self.image_extensions:
@@ -303,7 +431,7 @@ class TestFileInspector(unittest.TestCase):
         self.assertFalse(is_ok, "Corrupted RAR should fail.")
 
     def test_compressed_files(self):
-        for ext in (".gz", ".bz2", ".tar", ".tar.gz", ".tar.bz2", ".7z"):
+        for ext in (".gz", ".bz2", ".xz", ".tar", ".tar.gz", ".tar.bz2", ".tar.xz", ".7z"):
             with self.subTest(ext=ext):
                 is_ok, message = inspect_file(self.good_files[ext])
                 self.assertTrue(is_ok, f"{ext} should pass: {message}")
@@ -311,7 +439,24 @@ class TestFileInspector(unittest.TestCase):
                 self.assertFalse(is_ok, f"Corrupted {ext} should fail.")
 
     def test_text_files(self):
-        for ext in (".json", ".xml"):
+        for ext in (
+            ".json",
+            ".ndjson",
+            ".xml",
+            ".txt",
+            ".csv",
+            ".tsv",
+            ".html",
+            ".ini",
+            ".rtf",
+            ".eml",
+            ".toml",
+            ".yaml",
+            ".yml",
+            ".msg",
+            ".sqlite",
+            ".db",
+        ):
             with self.subTest(ext=ext):
                 is_ok, message = inspect_file(self.good_files[ext])
                 self.assertTrue(is_ok, f"{ext} should pass: {message}")
@@ -319,7 +464,7 @@ class TestFileInspector(unittest.TestCase):
                 self.assertFalse(is_ok, f"Corrupted {ext} should fail.")
 
     def test_media_files(self):
-        for ext in (".mp3", ".mp4", ".flac", ".ogg"):
+        for ext in (".mp3", ".mp4", ".flac", ".ogg", ".wav"):
             with self.subTest(ext=ext):
                 is_ok, message = inspect_file(self.good_files[ext])
                 self.assertTrue(is_ok, f"{ext} should pass: {message}")
@@ -340,6 +485,45 @@ class TestFileInspector(unittest.TestCase):
         report = inspect_file_report("non_existent_file_12345.xyz")
         self.assertFalse(report.ok)
         self.assertIn(TAG_NOT_FOUND, report.tags)
+
+    def test_signature_precheck(self):
+        fake_pdf = Path(self.temp_dir) / "fake_header.pdf"
+        fake_pdf.write_text("this is not a real pdf", encoding="utf-8")
+        report = inspect_file_report(str(fake_pdf), mode="deep")
+        self.assertFalse(report.ok)
+        self.assertIn("invalid_format", report.tags)
+
+    def test_inspect_files_deduplicate_paths(self):
+        path = self.good_files[".png"]
+        reports = inspect_files([path, path, path], mode="deep")
+        self.assertEqual(len(reports), 3)
+        for report in reports:
+            self.assertTrue(report.ok)
+            self.assertIn(TAG_OK, report.tags)
+
+    def test_signature_precheck_denylist_disables_header_check(self):
+        fake_pdf = Path(self.temp_dir) / "fake_header_denylist.pdf"
+        fake_pdf.write_text("this is not a real pdf", encoding="utf-8")
+
+        enabled = inspect_file_report(str(fake_pdf), mode="deep")
+        disabled = inspect_file_report(
+            str(fake_pdf),
+            mode="deep",
+            signature_precheck_denylist=[".pdf"],
+        )
+
+        self.assertFalse(enabled.ok)
+        self.assertFalse(disabled.ok)
+        self.assertIn("signature mismatch", enabled.message.lower())
+        self.assertNotIn("signature mismatch", disabled.message.lower())
+
+    def test_staged_deep_preserves_deep_mode(self):
+        good = self.good_files[".png"]
+        bad = self.bad_files[".pdf"]
+        reports = inspect_files([good, bad], mode="deep", staged_deep=True)
+        self.assertEqual(2, len(reports))
+        for report in reports:
+            self.assertEqual("deep", report.mode)
 
 
 if __name__ == "__main__":
