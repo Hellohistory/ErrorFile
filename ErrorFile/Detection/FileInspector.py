@@ -1,37 +1,7 @@
 import os
-from typing import Callable, Dict, Iterable, Optional, Set
+from typing import Dict, Iterable, Optional, Set
 
-from .ArchiveInspector import (
-    check_7z_file,
-    check_bzip2_file,
-    check_gzip_file,
-    check_rar_file,
-    check_tar_file,
-    check_xz_file,
-    check_zip_file,
-)
-from .ExcelInspector import check_excel_file, check_xls_file
-from .ImageInspector_precise import ImageInspector as ImageInspectorPrecise
-from .MediaInspector import check_media_file
-from .PDFInspector import PDFInspector
-from .PowerPointInspector import check_pptx_file
-from .TextInspector import (
-    check_csv_file,
-    check_html_file,
-    check_ini_file,
-    check_json_file,
-    check_msg_file,
-    check_ndjson_file,
-    check_plain_text_file,
-    check_rtf_file,
-    check_eml_file,
-    check_sqlite_file,
-    check_tsv_file,
-    check_toml_file,
-    check_xml_file,
-    check_yaml_file,
-)
-from .WordInspector import check_docx_file
+from ..plugins import InspectorCallable, load_default_plugins
 from ..report import (
     InspectionFinding,
     TAG_CORRUPTED,
@@ -39,10 +9,7 @@ from ..report import (
     TAG_IO_ERROR,
     TAG_UNSUPPORTED,
     fail_finding,
-    ok_finding,
 )
-
-InspectorCallable = Callable[[str, str], InspectionFinding]
 
 SUPPORTED_MODES = {"fast", "deep"}
 
@@ -141,111 +108,15 @@ def normalize_mode(mode: Optional[str]) -> str:
     return mode
 
 
-def _wrap_path_only(func: Callable[[str, str], InspectionFinding]) -> InspectorCallable:
-    """Wrap inspectors with the common signature."""
-
-    def _wrapped(file_path: str, mode: str) -> InspectionFinding:
-        return func(file_path, mode)
-
-    return _wrapped
-
-
-def _inspect_image(file_path: str, mode: str) -> InspectionFinding:
-    inspector = ImageInspectorPrecise(file_path)
-    return inspector.check_image(mode)
-
-
-def _inspect_svg(file_path: str, _: str) -> InspectionFinding:
-    try:
-        with open(file_path, "r", encoding="utf-8") as file:
-            content = file.read().lower()
-    except Exception as exc:  # pragma: no cover - IO error depends on environment
-        return fail_finding(
-            f"SVG read error: {exc}",
-            TAG_IO_ERROR,
-            error=str(exc),
-        )
-    if "<svg" in content and "</svg" in content:
-        return ok_finding("SVG check passed.")
-    return fail_finding(
-        "SVG missing required <svg> tags; file may be corrupted.",
-        TAG_CORRUPTED,
-        TAG_INVALID_FORMAT,
-    )
-
-
-def _inspect_pdf(file_path: str, mode: str) -> InspectionFinding:
-    inspector = PDFInspector(file_path)
-    return inspector.check_pdf(mode)
-
-
 def _build_registry() -> Dict[str, InspectorCallable]:
     registry: Dict[str, InspectorCallable] = {}
-    image_extensions: Iterable[str] = (
-        ".jpeg",
-        ".jpg",
-        ".png",
-        ".gif",
-        ".bmp",
-        ".webp",
-        ".tiff",
-    )
-    for extension in image_extensions:
-        registry[extension] = _inspect_image
-    registry[".svg"] = _inspect_svg
-    registry[".pdf"] = _inspect_pdf
-    registry[".xlsx"] = _wrap_path_only(check_excel_file)
-    registry[".xls"] = _wrap_path_only(check_xls_file)
-    registry[".docx"] = _wrap_path_only(check_docx_file)
-    registry[".pptx"] = _wrap_path_only(check_pptx_file)
-    registry[".zip"] = _wrap_path_only(check_zip_file)
-    registry[".rar"] = _wrap_path_only(check_rar_file)
-    registry[".7z"] = _wrap_path_only(check_7z_file)
-    registry[".tar"] = _wrap_path_only(check_tar_file)
-    registry[".tar.gz"] = _wrap_path_only(check_tar_file)
-    registry[".tar.bz2"] = _wrap_path_only(check_tar_file)
-    registry[".tar.xz"] = _wrap_path_only(check_tar_file)
-    registry[".gz"] = _wrap_path_only(check_gzip_file)
-    registry[".bz2"] = _wrap_path_only(check_bzip2_file)
-    registry[".xz"] = _wrap_path_only(check_xz_file)
-
-    def _wrap_media(extension: str) -> InspectorCallable:
-        def _wrapped(file_path: str, mode: str) -> InspectionFinding:
-            return check_media_file(file_path, extension, mode)
-
-        return _wrapped
-
-    registry[".mp3"] = _wrap_media(".mp3")
-    registry[".mp4"] = _wrap_media(".mp4")
-    registry[".flac"] = _wrap_media(".flac")
-    registry[".ogg"] = _wrap_media(".ogg")
-    registry[".oga"] = _wrap_media(".ogg")
-    registry[".wav"] = _wrap_media(".wav")
-
-    registry[".json"] = _wrap_path_only(check_json_file)
-    registry[".ndjson"] = _wrap_path_only(check_ndjson_file)
-    registry[".xml"] = _wrap_path_only(check_xml_file)
-    registry[".toml"] = _wrap_path_only(check_toml_file)
-    registry[".yaml"] = _wrap_path_only(check_yaml_file)
-    registry[".yml"] = _wrap_path_only(check_yaml_file)
-    registry[".tsv"] = _wrap_path_only(check_tsv_file)
-    registry[".rtf"] = _wrap_path_only(check_rtf_file)
-    registry[".eml"] = _wrap_path_only(check_eml_file)
-    registry[".msg"] = _wrap_path_only(check_msg_file)
-    registry[".sqlite"] = _wrap_path_only(check_sqlite_file)
-    registry[".db"] = _wrap_path_only(check_sqlite_file)
-    registry[".txt"] = _wrap_path_only(check_plain_text_file)
-    registry[".md"] = _wrap_path_only(check_plain_text_file)
-    registry[".log"] = _wrap_path_only(check_plain_text_file)
-    registry[".csv"] = _wrap_path_only(check_csv_file)
-    registry[".html"] = _wrap_path_only(check_html_file)
-    registry[".htm"] = _wrap_path_only(check_html_file)
-    registry[".ini"] = _wrap_path_only(check_ini_file)
-    registry[".cfg"] = _wrap_path_only(check_ini_file)
+    load_default_plugins(registry)
     return registry
 
 
 INSPECTOR_REGISTRY = _build_registry()
+DEFAULT_LOADED_PLUGINS = load_default_plugins.last_loaded_modules
+DEFAULT_SKIPPED_PLUGINS = load_default_plugins.last_skipped_modules
 
 
 def register_inspector(extension: str, inspector: InspectorCallable) -> None:
@@ -254,6 +125,11 @@ def register_inspector(extension: str, inspector: InspectorCallable) -> None:
     if not normalized_extension.startswith("."):
         normalized_extension = f".{normalized_extension}"
     INSPECTOR_REGISTRY[normalized_extension] = inspector
+
+
+def register_plugin(registrar) -> None:
+    """Register plugin module registrar at runtime."""
+    registrar(INSPECTOR_REGISTRY)
 
 
 class FileInspector:
