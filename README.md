@@ -1,6 +1,6 @@
 # ErrorFile
 
-`ErrorFile`是一个用于检测和识别各种文件错误的Python包，包括图片、PDF、Excel和Word文件。通过使用统一的顶层接口，可以快速定位文件中潜在的问题。
+`ErrorFile`是一个用于检测和识别多种文件损坏/格式异常的Python包。它提供统一的顶层接口，可快速定位文件中潜在问题。
 
 ## 安装
 
@@ -18,8 +18,8 @@ pip install ErrorFile
 from ErrorFile import inspect_file
 
 file_path = r'tests/files/TOM_损坏.jpg'
-# mode 参数由 inspect_file 统一处理，当前仅支持 'precise'
-is_ok, message = inspect_file(file_path, mode='precise')
+# mode 支持 'fast' 或 'deep'；'precise' 兼容映射到 'deep'
+is_ok, message = inspect_file(file_path, mode='deep')
 print(f"File: {file_path}\nOK: {is_ok}\nMessage: {message}")
 ```
 
@@ -30,27 +30,55 @@ print(f"File: {file_path}\nOK: {is_ok}\nMessage: {message}")
 - 图片（JPEG, JPG, PNG, GIF, BMP, WEBP, TIFF, SVG）
 - PDF
 - Office 文档（Excel：XLSX、XLS；Word：DOCX；PowerPoint：PPTX）
-- 压缩包（ZIP、RAR）
-- 媒体文件（MP3、MP4）
+- 压缩包（ZIP、RAR、7z、TAR、TAR.GZ、TAR.BZ2、TAR.XZ、GZ、BZ2、XZ）
+- 媒体文件（MP3、MP4、FLAC、OGG、OGA、WAV）
+- 文本文件（TXT、MD、LOG、CSV、TSV、HTML/HTM、INI/CFG、JSON、NDJSON、XML、TOML、YAML/YML、RTF、EML）
+- 其他结构化文件（MSG、SQLite：SQLITE/DB）
 
 ## 检测模式
 
-图片文件采用精确检测模式(`precise`)，底层基于 Pillow 的 `verify()` 与 `load()` 方法，能够快速且可靠地发现问题。非图片文件会自动执行相应的深度检查，无需手动配置模式。
+`mode` 支持：
+- `fast`：快速结构检查，适合批量初筛。
+- `deep`：深度内容检查，覆盖更多损坏场景。
+
+兼容性说明：传入 `precise` 会被自动映射为 `deep`。
+
+性能说明：框架会先进行轻量文件头签名预检，并在批量检测时自动合并重复路径，减少不必要的深度解析开销。
 
 ## API参考
 
-### `inspect_file(file_path, mode='precise')`
+### `inspect_file(file_path, mode='deep')`
 
 顶层函数，用于检查指定路径的文件是否损坏。
 
 #### 参数
 
 - `file_path`：要检查的文件路径。
-- `mode`：（可选）图片检测模式，目前仅支持 `precise`，其它文件类型忽略此参数。
+- `mode`：（可选）检测模式，支持 `fast` 与 `deep`，默认 `deep`。`precise` 作为兼容别名会映射为 `deep`。
+- `signature_precheck`：（可选）是否启用文件头签名预检，默认 `True`。
+- `signature_precheck_allowlist` / `signature_precheck_denylist`：（可选）控制哪些扩展名参与签名预检。
 
 #### 返回
 
 - `(is_ok, message)`：`is_ok`是布尔值，表示文件是否通过检查；`message`是详细描述信息。
+
+### `inspect_files(..., staged_deep=False)`
+
+- `staged_deep=True` 且 `mode='deep'` 时，批量检测会先执行 `fast`，仅对通过 `fast` 的文件继续 `deep`，提升混合坏样本场景的吞吐。
+
+## 性能基准
+
+可使用脚本对比 `staged_deep` 的收益：
+
+```bash
+python scripts/benchmark_staged_deep.py --samples 1200 --bad-ratio 0.7 --workers 8 --repeats 3
+```
+
+也可关闭签名预检进行对照：
+
+```bash
+python scripts/benchmark_staged_deep.py --samples 1200 --bad-ratio 0.7 --workers 8 --repeats 3 --disable-signature-precheck
+```
 
 ## 贡献
 

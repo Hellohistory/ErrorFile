@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="ErrorFile",
-    version="0.2.1",
+    version="0.2.2",
     packages=find_packages(),
     author="Hellohistory",
     description="一个用于检测图片、文档、压缩包与媒体文件是否损坏的Python包",
@@ -37,6 +37,7 @@ setup(
         "python-pptx",
         "rarfile",
         "mutagen",
+        "py7zr",
     ],
     project_urls={
         "Bug Reports": "https://github.com/Hellohistory/Errorfile/issues",

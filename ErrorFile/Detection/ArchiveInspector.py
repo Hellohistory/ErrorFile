@@ -3,6 +3,7 @@
 
 import bz2
 import gzip
+import lzma
 import tarfile
 import zipfile
 
@@ -142,6 +143,21 @@ def check_7z_file(file_path, mode="deep"):
             error=str(exc),
         )
     return ok_finding("7z deep check passed.")
+
+
+def check_xz_file(file_path, mode="deep"):
+    """Check .xz integrity."""
+    try:
+        with lzma.open(file_path, "rb") as xz_file:
+            xz_file.read(1024 if mode == "deep" else 16)
+    except (lzma.LZMAError, EOFError, OSError) as exc:
+        return fail_finding(
+            f"XZ corrupted or invalid: {exc}",
+            TAG_CORRUPTED,
+            TAG_INVALID_FORMAT,
+            error=str(exc),
+        )
+    return ok_finding("XZ check passed.")
 
 
 def check_tar_file(file_path, mode="deep"):
